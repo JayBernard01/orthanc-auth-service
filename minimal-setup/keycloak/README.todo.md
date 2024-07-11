@@ -21,7 +21,8 @@ Dicom Album Manager integration for Orthanc, Paradim
 
 ## TODO: backend first
 
-- [ ] ajouter un utilisateur manuellement [voir procédure ici](./README.add-role.md)
+- [x] ajouter un utilisateur manuellement [voir procédure ici](./README.add-role.md)
+- [ ] group users roles by group in keycloack
 - [ ] tester avec un utilisateur sur une Azure
 - [ ] finegrained the acces rules with the json file using labels and keycloack -> Pyhton script?
 - [ ] connect the group off all users with AzureAD using Keycloack

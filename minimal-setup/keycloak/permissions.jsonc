@@ -22,7 +22,7 @@
         "send"
       ]
     },
-    "researcher-role": {
+    "research-role": {
       "authorized-labels": [
         "research",
         "external"
