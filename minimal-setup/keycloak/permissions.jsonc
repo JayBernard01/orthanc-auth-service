@@ -22,6 +22,16 @@
         "send"
       ]
     },
+    "researcher-role": {
+      "authorized-labels": [
+        "research",
+        "external"
+      ],
+      "permissions": [
+        "view",
+        "download"
+      ]
+    },
     "external-role": {
       "authorized-labels": [
         "external"
