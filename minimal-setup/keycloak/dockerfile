@@ -1,0 +1,15 @@
+FROM orthancteam/orthanc:24.6.2
+
+RUN apt update && \
+    apt-get install -y --no-install-recommends \
+    python3-venv \
+    python3-pip \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN python3 -m venv /venv
+
+RUN /venv/bin/pip install pyorthanc
+
+ENV PYTHONPATH=/venv/lib64/python3.11/site-packages/
+
+COPY ./orthanc_script ./orthanc

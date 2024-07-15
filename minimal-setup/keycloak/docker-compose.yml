@@ -24,14 +24,17 @@ services:
       ENABLE_OHIF: "true"
 
   orthanc:
-    image: orthancteam/orthanc:24.7.1
+    # image: orthancteam/orthanc:24.7.1
+    build: .
     volumes:
       - orthanc-storage:/var/lib/orthanc/db
+      - ./orthanc_script.py:/orthanc_script.py:ro
     depends_on: [orthanc-db]
     restart: unless-stopped
     environment:
       STONE_WEB_VIEWER_PLUGIN_ENABLED: "true"
       DICOM_WEB_PLUGIN_ENABLED: "true"
+      PYTHON_PLUGIN_ENABLED: "true"
       # to use OHIF-plugin:  make sure to have a "OHIF" config and use "dicom-web" source
 #      OHIF_PLUGIN_ENABLED: "true"
       ORTHANC__POSTGRESQL__HOST: "orthanc-db"
@@ -40,6 +43,9 @@ services:
       VERBOSE_STARTUP: "true"
       ORTHANC_JSON: |
         {
+          "Plugins" : [ "/usr/share/orthanc/plugins/libOrthancPython.so" ],
+          "PythonScript" : "/orthanc_script.py",
+          "PythonVerbose" : false,
           "Name": "Orthanc",
           "OrthancExplorer2": {
             "IsDefaultUI": true,
