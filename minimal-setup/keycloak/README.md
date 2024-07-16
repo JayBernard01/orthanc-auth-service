@@ -106,4 +106,9 @@ Then, in a terminal, type this command to access the API with an api-key.
 curl -H "api-key: api-key-for-external-user-that-should-be-a-long-random-string" -d '{"Level": "Study", "Query": {"PatientID": "*"}}'  http://localhost:8043/tools/find
 ```
 
+Or try this because the port is not exposed on docker-compose, you need to pass by nginx
+```bash
+curl -H "api-key: api-key-for-external-user-that-should-be-a-long-random-string" -d '{"Level": "Study", "Query": {"PatientID": "*"}}'  http://localhost/orthanc/tools/find
+```
+
 This should only list the studies with the `external` label.

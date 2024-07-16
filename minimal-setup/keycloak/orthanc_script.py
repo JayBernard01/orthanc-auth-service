@@ -1,6 +1,5 @@
 from pyorthanc import orthanc_sdk
 
-# TODO(Jé): add a log to see if it works in Orthanc
 # TODO(Jé): change permissions automatically to reflect all Azure AD users
 # TODO(Jé): -> next: update on adding or removing users from Azure (post, put, delete)
 # TODO(Jé): automatically add a tag to a new instance with a specific label
@@ -17,14 +16,16 @@ from pyorthanc import orthanc_sdk
 # "external-role":{"authorized-labels":["external"],"permissions":["view","download"]}},"available-labels":[]}'
 def on_change(change_type: orthanc_sdk.ChangeType, _level: orthanc_sdk.ResourceType, resource: str) -> None:
     if change_type == orthanc_sdk.ChangeType.ORTHANC_STARTED:
-        with open("/tmp/sample.dcm", "rb") as f:  # noqa: S108
-            orthanc_sdk.RestApiPost("/instances", f.read())
+        print("Started", flush=True)  # noqa: T201
 
     elif change_type == orthanc_sdk.ChangeType.ORTHANC_STOPPED:
         print("Stopped", flush=True)  # noqa: T201
 
-    elif change_type == orthanc_sdk.ChangeType.NEW_INSTANCE:
-        print("A new instance was uploaded: %s" % resource, flush=True)  # noqa: T201
+    elif change_type == orthanc_sdk.ChangeType.STABLE_STUDY:
+        print("A stable study was uploaded: %s" % resource, flush=True)  # noqa: T201
+        label = "research"
+
+        orthanc_sdk.RestApiPut(f"/studies/{resource}/labels/{label}", "{}")
 
 
 orthanc_sdk.RegisterOnChangeCallback(on_change)
