@@ -22,10 +22,11 @@ Dicom Album Manager integration for Orthanc, Paradim
 ## TODO: backend first
 
 - [x] ajouter un utilisateur manuellement [voir procédure ici](./manual-integration/README.add-role.md)
+- [ ] tester avec un utilisateur sur une Azure -> insérer les credentials (avoir une config automatique -> variable d'env)
 - [ ] ajouter les labels automatiquement
 - [ ] gérer les accès dans Keycloack automatiquement
 - [ ] users by group in Keycloack
-- [ ] tester avec un utilisateur sur une Azure
+
 - [ ] finegrained the acces rules with the json file using labels and keycloack -> Pyhton script?
 - [ ] connect the group off all users with AzureAD using Keycloack
 - [ ] test manage users from admin -> keycloack built in?
@@ -63,23 +64,97 @@ Dicom Album Manager integration for Orthanc, Paradim
 
 - Donc, lorsque l'on retire un label, il faut également retirer des accès pour potentillement plusieurs usagers, ce qui implique qu'il faut un rôle avec plus d'accès pour pouvoir modifier, retirer un label. Pour assurer l'unicité de la transaction, il faut mettre un mécanisme en place de verrou pour éviter une transaction indésirable. Dans le cas d'un étât impossible, on rejette la requête. Par exmple, retirer un label externe pendant qu'un utilisateur docteur avec une study de label externe retire l'accès externe de la study, un utilisateur doit immédiatement ne plus avoir la possibilitée de donner les accès. Un verrou permettrait d'éviter efficacement la concurrence. 
 
-- Bref, une study avec aucun label n'est accessible qu'à un utilisateur avec tous les droits. Retirer les labels d'une study peut être fait uniquement par un utilisateur qui respecte les droits de modifications pour tous les labels de la study. Les labels associés aux règles équivalentes ou moins élevées quant au rôle de l'utilisateur peuvent être ajoutés uniquement.
+- Bref, une study avec aucun label n'est accessible qu'à un utilisateur avec tous les droits. Retirer les labels d'une study peut être fait uniquement par un utilisateur qui a les droits de modifications pour tous les labels de la study. Le droit de modification des labels d'une study est un rôle prévilégié. 
+
+
+
   
 - Un protocole `JWT` est utilisé pour les codes qui sont des fichiers .json encryptés essentiellement qui ajoutent de l'information par rapport au code token qui sera utilisé par le Orthanc-Auth service. Keycloack agit comme un `middleware`, une couche d'authentification intermédiaire entre Orthanc auth service et Keycloack. Il gère essentiellement l'authentification des usagers et les rôles que l'on peut attribuer. L'accès est servi par un `reverse-proxy`, un proxy inversé qui gère les requettes HTTP et HTTPS pour servir l'application web sur la couche applicative à l'aide de fichiers statiques ou d'appels API. Un `certibot`, un robot de renouvellement de certificats est utilisé pour palier à l'expiration des certificats gérant le `TLS`, la couche de transport sécurisée que Nginx gère. Essentiellement, Nginx va distribuer les appels vers Orthanc-Auth, l'API d'Orthanc, l'interface Web de Orthanc et Keycloack.
 
 - Le projet est axé sur l'apect `backend`, la partie en arrière-plan de l'application avec un `fork`, une base du régistre de code distribué open-source du Orthanc-Auth-Service. On souhaite y intégrer le `Azure AD`, le service de régistre des utilisateurs Microsoft utilisé par l'Université Laval, un contrôle des accès par groupe, l'authentification HTTPS et le déploiement de l'application sur `Kubernetes` à l'aide d'un pipeline `CI/CD`, pour le déploiement et l'intégration en continue. 
   
 - Dans le futur, ces services d'authentification pourront s'intégrer avec le job manager et faire une gestion par le concept d'albums qui regroupent des `studies`, des études, entre-elles moyennant une interface intéractive qui pourrait s'intégrer à l'extension version 2 de l'interface de Orthanc ou en utilisant une nouvelle interface plus intuitive.
+# Stratégie
 
+## permissions
+```
+all
+view
+download
+delete
+send
+modify
+anonymize
+upload
+q-r-remote-modalities
+settings
+api-view
+share
+```
 
-### résumé pour l'affiche
+## labels et permissions
+- externe (par défault) -> `accès à Orthanc seulement`
+- admin -> `all`
+- superuser (au-dessus de admin) -> `compte de secours` (nice to have)
+- {nom-projet} -> lecture données d'un projet -> `view`
+- on veut garder le configuration permissions.json de orthanc-auth-service manuelle pour l'instant (nice to have automatique)
+- on veut que les labels soient assignées de manière automatique pour un utilisateur qui gère le projet {nom-projet},
+- une study peut faire partie de plusieurs projets
+- ${nom-projet}
+- ${nom-groupe-recherche}
+- extern
 
-Le projet met l'accent sur une alternative à Kheops quant à la gestion des usagers, pour pallier à sa robustesse insuffisante face aux erreurs fatales en production. Dans Orthanc, l'authentification est globale, ce qui signifie que tous ceux qui ont accès au serveur ont accès à toutes les ressources. Pour résoudre ce problème, l'équipe Orthanc a développé un plugin permettant de gérer les accès par utilisateur en utilisant Keycloak, Orthanc-Auth-Service et Nginx. L'astuce consiste à utiliser des labels sur les études pour contrôler l'accès et à passer une configuration JSON au service d'authentification d'Orthanc.
+## rôles et groupes à assigner
 
-Un protocole JWT est utilisé pour les codes, qui sont essentiellement des fichiers JSON encryptés ajoutant des informations au token utilisé par le service Orthanc-Auth. Keycloak agit comme un middleware, une couche intermédiaire d'authentification entre le service Orthanc-Auth et Keycloak, gérant l'authentification des utilisateurs et les rôles attribués. L'accès est servi par un reverse-proxy, qui gère les requêtes HTTP et HTTPS pour servir l'application web via des fichiers statiques ou des appels API. Un certibot est utilisé pour renouveler les certificats TLS gérés par Nginx, qui distribue les appels vers Orthanc-Auth, l'API d'Orthanc, l'interface web d'Orthanc et Keycloak.
+- On associe un Users à un Group sur Keycloack lorsque possible, puis par Users uniquement si impossible
+- Un User peut faire partie de plusieurs groupes 
+- Pyramide des droits: (ascendant du moins de droits à celui ayant tous les droits)
+    1. Group extern (par défault) -> `accès à Orthanc seulement`
+    2. Group {nom-groupe-recherche} -> (ex: GRPM, IUCPQ) regroupe des projets -> `view (sur les données du groupe)`
+    3. Group {nom-projet} -> lecture données d'un projet -> `view`
+    4. Group {nom-projet}-manager -> gérer le projet -> `send, download, modify, upload, share, delete le label du {nom-projet} -> (sur les données du projet)`
+    5. Group {nom-groupe-recherche}-manager -> gérer tous les projets du groupe -> `send, download, modify, upload, share, delete le label du {nom-projet} -> (sur les données des projets)`
+    6. Group admin -> `all`
+    7. Role superuser (au-dessus de admin) -> `compte de secours` (nice to have)
 
-Le projet se concentre sur le backend, avec un fork du registre de code open-source d'Orthanc-Auth-Service. L'objectif est d'intégrer Azure AD, le service de registre des utilisateurs de Microsoft utilisé par l'Université Laval, pour un contrôle des accès par groupe, l'authentification HTTPS et le déploiement de l'application sur Kubernetes via un pipeline CI/CD pour le déploiement et l'intégration continue.
+## structure d'héritage des droits d'accès
 
-À l'avenir, ces services d'authentification pourront s'intégrer avec le job manager et gérer les études par le concept d'albums, offrant une interface interactive qui pourrait s'intégrer à l'extension version 2 de l'interface d'Orthanc ou utiliser une nouvelle interface plus intuitive.
+[voir le schéma](./auth_pyramid.drawio) : les droits sont divisés selon le diagramme de Venn où les groupes, des ensembles, partagent des droits par intersection. En couleur, on a les groupes qui peuvent modifier les labels des groupes qui sont inscrits à l'intérieur de leurs domaine. Cependant, les groupes de recherche sont une condition supplémentaire pour délimiter les groupes. Un User dans un groupe n'a pas accès aux autres groupes à moins d'y être inscrit. Le user doit être inscrit dans un des groupes qui contient le projet et au projet pour pouvoir y être inscrit. Les cases blanches ont des droits de view uniquement. Les cases de couleur ont des droits d'ajouter, retirer des labels de leur groupe qu'ils fédèrent uniquement (le groupe immédiatement inscrit à l'intérieur). Or, puisqu'un User avec un tel pouvoir hérite de tous les droits inscrits à l'intérieur, subséquement, les groupes en couleur ont le droit de regard jusqu'au projet qui contient un ensemble de studies.
+
+### Illustrons les possibilitées de fédération des accès
+
+ Par exemple, le research-group-manager possède le rôle de manager du research-group. Dans ce groupe de recherche, il y a 3 projets. le projet 1 est sous fédération par le project-manger-1 et les projets 2 et 3 sont sous la fédération du project-manager-2. Le research-group-manager possède le rôle pour modifier les labels qui sont sous la fédération des projects-manager 1 et 2. Donc, il possède les rôles des projects-manager, ce qui implique qu'il peut modifier les labels des projets 1, 2 et 3.
+
+### Illustrons les possibilitées de fédération des accès partagés
+
+ Prenons un autre exemple où un projet est sous la fédération de plusieurs projects manager. Le project-manager 1 et le project-manager 2 ont les droits de modifier le projet 1 sous leur fédération. Le project manager à la possibilité de retirer ses accès et de le donner à un autre project-manager. À défaut qu'il y ait un projet manager qui fédère le projet, le projet est orphelin dans le groupe en attente que le research-group-manager attribue le projet à un project-manager dans le research-group.
+
+### Illustrons les possibilitées où un usager peut se voir attribuer un rôle dans un groupe.
+
+1. externe: il n'a aucun accès appart Orthan vide
+2. ${nom-bot}: permettre l'écriture des données sans accès
+3. ${nom-projet}: il a accès en lecture à ce projet conditionnel à avoir accès au groupe
+4. ${nom-groupe-recherche}: il a accès au groupe
+5. ${nom-projet}-manager: il peut modifier les accès à tous les ${nom-projet} associés
+6. ${nom-groupe-recherche}-manager: il peut modifier les accès à ${nom-groupe-recherche} ce qui implique tous les projects-manager de ce groupe et tous leurs ${nom-projet}
+7. l'admin peut modifier les accès de tout ceux précédemment pour tous les ${nom-groupe-recherche} et a essentiellement presque tous les droits
+8. le superuser est un compte de récupération pour l'admin si on veut qui possède les clés de toute l'application
+
+### Illustrons les possibilitées de labels pour des studies et comment on peut y accéder.
+
+1. la study fait partie du projet-1, du groupe-recherche-1, donc elle a les labels projet-1 et groupe-recherche-1.
+2. la study fait partie du projet-1 et du projet-2, en plus de faire partie du groupe-recherche, donc elle peut être accédée par le User qui fait partie du groupe-recherche **et** qu'il fait partie du projet-1 **ou** du projet-2
+3. la study fait partie du projet-1 qui fait partie du groupe-recherche-1 et groupe-recherche-2, donc un User peut y accéder s'il fait partie du groupe de recherche 1 **ou** du groupe de recherche 2 **et** qu'il fait partie du projet-1
+
+### Illustrons les possibilitées d'un User qui possède un project-manager Role ou un research-group-manager de modifier les accès. Un project manager peut être utile s'il gère une grande quantitée de projets dans un même groupe. Un group manager peut être utile si on veut diviser le groupe en sous-groupes. Peut-être que le groupe admin est suffisant pour une petite organisation.
+
+1. Le project-manager fédère le `projet-1` et le `projet-2`. Il souhaite partager une study qui est disponible dans le `groupe-de-recherche`. Il ajoute un label projet-1 à la study en question. Maintenant au lieu d'avoir le label `groupe-de-recherche` uniquement, il a maintenant `groupe-de-recherche` et `projet-1`. Il ne pourrait pas ajouter `projet-3`, car il ne fédère pas le projet-3. Il ne pourrait pas changer le groupe non plus, car il n'a pas les droits du group-de-recherche-manager qui lui peut ajouter ou retirer le label `groupe-de-recherche` à une study quelconque.
+2. Le groupe-de-recherche-manager fédère le `groupe-de-recherche-1` et le `groupe-de-recherche-2`. Le `groupe-de-recherche-2` n'a pas de studies en ce moment étiquettées par ce groupe, il pourrait décider de retirer le `groupe-de-recherche-1` de sa fédération, ce qui rendrait les studies disponibles seulement par le groupe admin (en retirant tous les labels associés au `groupe-de-recherche-1` pour les studies qui en possède). Il pourrait aussi décider d'ajouter un lien symbolique avec le `groupe-de-recherche-2` pour qu'elles soient accessibles par les utilisateurs du `groupe-de-recherche-2`.
+
+### Illustrons les possibilités d'un admin et d'une machine
+
+1. l'admin peut téléverser, télécharger, partager, etc, il possède tous les accès. Il peut également décider de supprimer des studies. Il peut ajouter, retirer les labels et modifier les accès des autres utilisateurs. Il est essentiel pour l'organisation, c'est lui qui a accès à Keycloack finalement. C'est lui qui attribue les rôles.
+2. Une machine qui téléverse des données peut être authentifiée comme admin pour pouvoir insérer des données. Cependant, peut-être qu'une telle machine possède trop de droits, il n'est pas toujours nécessaire d'avoir tous les droits pour insérer des données ou encore anonymiser. Il sera nécessaire d'intégrer des machines pour gérer l'anonymisation dans PARADIM. Cette machine est ajoutée dans un groupe `bot` donné avec le droit d'écriture uniquement en plus. Il faut limiter les accès dans les clients pour faire uniquement la tâche par API. On pourrait ajouter un rôle de machine dans ce cas pour permettre un tel accès.
+
 
 
