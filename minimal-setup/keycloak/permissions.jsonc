@@ -10,35 +10,54 @@
         "all",
         "admin-permissions"
       ]
-    },
-    "doctor-role": {
+    },    
+    "bot-role": {
       "authorized-labels": [
-        "*"
+      ],
+      "permissions": [
+        "upload"
+      ]
+    },
+    "GRPM-project1-manager-role": {
+      "authorized-labels": [
+        "GRPM-project1"
       ],
       "permissions": [
         "view",
-        "download",
-        "share",
-        "send"
+        "upload",
+        "api-view"
       ]
     },
-    "research-role": {
+    "GRPM-project1-role": {
       "authorized-labels": [
-        "research",
-        "external"
+        "GRPM-project1"
+      ],
+      "permissions": [
+        "view"
+      ]
+    },         
+    "GRPM-manager-role": {
+      "authorized-labels": [
+        "GRPM"
       ],
       "permissions": [
         "view",
-        "download"
+        "upload",
+        "api-view"
       ]
-    },
+    },       
+    "GRPM-role": {
+      "authorized-labels": [
+        "GRPM"
+      ],
+      "permissions": [
+        "view"
+      ]
+    },   
     "external-role": {
       "authorized-labels": [
-        "external"
       ],
       "permissions": [
-        "view",
-        "download"
       ]
     }
   },

@@ -22,14 +22,13 @@ Dicom Album Manager integration for Orthanc, Paradim
 ## TODO: backend first
 
 - [x] ajouter un utilisateur manuellement [voir procédure ici](./manual-integration/README.add-role.md)
-- [ ] tester avec un utilisateur sur une Azure -> insérer les credentials (avoir une config automatique -> variable d'env)
+- [x] tester avec un utilisateur sur une Azure -> insérer les credentials et ajouter un rôle pour tester
+- [x] users by group in Keycloack
+- [x] configurer et documenter les permissions.json de base
+- [x] configurer le realm Orthanc de base et exporter le fichier realm-export.json
 - [ ] ajouter les labels automatiquement
 - [ ] gérer les accès dans Keycloack automatiquement
-- [ ] users by group in Keycloack
-
-- [ ] finegrained the acces rules with the json file using labels and keycloack -> Pyhton script?
-- [ ] connect the group off all users with AzureAD using Keycloack
-- [ ] test manage users from admin -> keycloack built in?
+- [ ] 
 - [ ] configure a pod for K8s/Openshift -> test with Minikube
 - [ ] build a CI/CD pipeline -> Gitlab
 - [ ] configure HTTPS -> Nginx, Docker-Compose, DNS
@@ -76,44 +75,37 @@ Dicom Album Manager integration for Orthanc, Paradim
 - Dans le futur, ces services d'authentification pourront s'intégrer avec le job manager et faire une gestion par le concept d'albums qui regroupent des `studies`, des études, entre-elles moyennant une interface intéractive qui pourrait s'intégrer à l'extension version 2 de l'interface de Orthanc ou en utilisant une nouvelle interface plus intuitive.
 # Stratégie
 
+## fonctionnement: Keycloack Group -> Keycloack Realm Role -> orthanc-auth-service Role -> orthanc label
+- le `Group` regroupe des `Users` et des `Realm roles` qui leurs sont attribuées. Ces `Users` peuvent se voir attribuer des `Realm roles` séparément des `Groups` également. On attribue toujours les `Realm roles` par `Groups` grâce au `Role Mapping` lorsque c'est possible. Les Users qui joignent le `Group` vont alors hériter de ses droits . Il faut donc définir les `Realm Roles` séparément pour pouvoir les attribuer à un `Group` ou un `User`. Les `Realm Roles` sont directement liés aux `orthanc-auth-service Roles` par le fichier de configuration [permissions.jsonc](./permissions.jsonc). Ils authorisent l'accès aux `studies` de `orthanc` selon des permissions qui sont listées plus bas:
+
 ## permissions
 ```
-all
-view
-download
-delete
-send
-modify
-anonymize
-upload
-q-r-remote-modalities
-settings
-api-view
-share
+"all",
+"anonymize",
+"delete",
+"download",
+"modify",
+"send",
+"share",
+"view",
+"settings",
+"edit-labels",
+"admin-permissions",
+"upload",
+"q-r-remote-modalities"
 ```
 
-## labels et permissions
-- externe (par défault) -> `accès à Orthanc seulement`
-- admin -> `all`
-- superuser (au-dessus de admin) -> `compte de secours` (nice to have)
-- {nom-projet} -> lecture données d'un projet -> `view`
-- on veut garder le configuration permissions.json de orthanc-auth-service manuelle pour l'instant (nice to have automatique)
-- on veut que les labels soient assignées de manière automatique pour un utilisateur qui gère le projet {nom-projet},
-- une study peut faire partie de plusieurs projets
-- ${nom-projet}
-- ${nom-groupe-recherche}
-- extern
-
-## rôles et groupes à assigner
+## rôles et groupes à assigner (directement liés aux labels) avec leurs permissions
 
 - On associe un Users à un Group sur Keycloack lorsque possible, puis par Users uniquement si impossible
 - Un User peut faire partie de plusieurs groupes 
 - Pyramide des droits: (ascendant du moins de droits à celui ayant tous les droits)
-    1. Group extern (par défault) -> `accès à Orthanc seulement`
-    2. Group {nom-groupe-recherche} -> (ex: GRPM, IUCPQ) regroupe des projets -> `view (sur les données du groupe)`
-    3. Group {nom-projet} -> lecture données d'un projet -> `view`
-    4. Group {nom-projet}-manager -> gérer le projet -> `send, download, modify, upload, share, delete le label du {nom-projet} -> (sur les données du projet)`
-    5. Group {nom-groupe-recherche}-manager -> gérer tous les projets du groupe -> `send, download, modify, upload, share, delete le label du {nom-projet} -> (sur les données des projets)`
+- Nomenclature:  Group: `{group-name}`; Realm Role/Permissions roles: `{group-name}-role`
+    1. Group external (par défault) -> accès à Orthanc seulement: `view` et le Group Bots -> `upload`
+    2. Child Group {nom-groupe-recherche} -> `external/{group-name}` -> (ex: GRPM, IUCPQ) regroupe des projets -> `view (sur les données du groupe)`
+    3. Child Group {project-name} -> `external/{group-name}/{project-name}` -> lecture données d'un projet -> `view`
+    4. Child Group {project-name}-manager -> `external/{group-name}/{project-name}/{project-name}-manager` -> gérer le projet -> `send, download, modify, upload, share, delete le label du {nom-projet} -> (sur les données du projet)`
+    5. Child Group {nom-groupe-recherche}-manager -> gérer tous les projets du groupe -> `send, download, modify, upload, share, delete le label du {nom-projet} -> (sur les données des projets)`
     6. Group admin -> `all`
     7. Role superuser (au-dessus de admin) -> `compte de secours` (nice to have)
 
@@ -131,7 +123,7 @@ share
 
 ### Illustrons les possibilitées où un usager peut se voir attribuer un rôle dans un groupe.
 
-1. externe: il n'a aucun accès appart Orthan vide
+1. external: il n'a aucun accès appart Orthan vide
 2. ${nom-bot}: permettre l'écriture des données sans accès
 3. ${nom-projet}: il a accès en lecture à ce projet conditionnel à avoir accès au groupe
 4. ${nom-groupe-recherche}: il a accès au groupe
