@@ -28,7 +28,7 @@ Dicom Album Manager integration for Orthanc, Paradim
 - [x] configurer le realm Orthanc de base et exporter le fichier realm-export.json
 - [ ] ajouter les labels automatiquement
 - [ ] gérer les accès dans Keycloack automatiquement
-- [ ] 
+
 - [ ] configure a pod for K8s/Openshift -> test with Minikube
 - [ ] build a CI/CD pipeline -> Gitlab
 - [ ] configure HTTPS -> Nginx, Docker-Compose, DNS
@@ -149,4 +149,13 @@ Dicom Album Manager integration for Orthanc, Paradim
 2. Une machine qui téléverse des données peut être authentifiée comme admin pour pouvoir insérer des données. Cependant, peut-être qu'une telle machine possède trop de droits, il n'est pas toujours nécessaire d'avoir tous les droits pour insérer des données ou encore anonymiser. Il sera nécessaire d'intégrer des machines pour gérer l'anonymisation dans PARADIM. Cette machine est ajoutée dans un groupe `bot` donné avec le droit d'écriture uniquement en plus. Il faut limiter les accès dans les clients pour faire uniquement la tâche par API. On pourrait ajouter un rôle de machine dans ce cas pour permettre un tel accès.
 
 
+### Attribution des labels de manière automatique
 
+- Il faut savoir quel compte est connecté pour pouvoir attribuer des labels, sinon on ne peut pas savoir quel est le label que l'on attache quand on ajoute une study. 
+- Quelques options s'offrent à nous quant au moyen de faire une telle chose:
+  1. créer une application séparée pour gérer le upload des studies avec orthanc-auth-service moyennant le api qui permet d'obtenir les tokens pour accéder à Orthanc
+  2. modifier l'interface v2 actuelle pour permettre une telle chose
+
+- La première permet un accès plus fin des données, une interface plus intuitive, car l'on peut décider ce que l'on veut faire pour être en mesure de gérer les albums. Permet l'utilisation des outils que l'on veut comme Django et HTMX qui sont plus simple et intuitif. Cependant, il faudrait modifier les accès pour avoir une plateforme qui est en lecture seule pour Orthanc avec le v2 et une interface séparée pour lancer les données. Une possibilité serait d'intégrer l'interface d'ajout des données et des albums au launcher, parce qu'ultimement, on veut faire.
+  
+- La deuxième est de modifier le plugin v2 de orthanc. Elle permet de gérer toutes les données au même endroit. La mise en place des outils pour être en mesure de faire les changements demande de reconstruire Orthanc essentiellement, ce qui est possible, mais ajoute une couche de complexité. La notion d'albums serait faite par label sur les studies ou les projets directement sur l'interface en ajoutant un bouton pour faire le déploiement ce qui regroupe les interfaces. Cette option est meilleure, car c'est la orthanc team qui s'en occupe.

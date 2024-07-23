@@ -24,8 +24,7 @@ services:
       ENABLE_OHIF: "true"
 
   orthanc:
-    # image: orthancteam/orthanc:24.7.1
-    build: .
+    image: custom-orthanc
     volumes:
       - orthanc-storage:/var/lib/orthanc/db
       - ./orthanc_script.py:/orthanc_script.py:ro
@@ -46,8 +45,10 @@ services:
           "PythonScript" : "/orthanc_script.py",
           "PythonVerbose" : false,
           "Name": "Orthanc",
+          "Plugins": [ "/usr/share/orthanc/plugins" ],
           "OrthancExplorer2": {
-            "IsDefaultUI": true,
+            "Enable": true,
+            "IsDefaultOrthancUI": true,
             "UiOptions": {
               "EnableShares": true,
               "DefaultShareDuration": 0,
@@ -66,9 +67,10 @@ services:
               "Url": "http://localhost/keycloak/",
               "Realm": "orthanc",
               "ClientId": "orthanc"
-            }
+            },
+            "Root": "/ui/"
           },
-          "AuthenticationEnabled": false,     // because it is handled by the authorization plugin
+          "AuthenticationEnabled": false,
           "Authorization": {
             "WebServiceRootUrl": "http://orthanc-auth-service:8000/",
             "WebServiceUsername": "share-user",
